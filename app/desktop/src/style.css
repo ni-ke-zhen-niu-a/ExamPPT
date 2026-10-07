@@ -200,6 +200,10 @@ button:disabled {
   background-color: #edf0f2;
 }
 
+.pdf-panel .viewer {
+  padding: 6px;
+}
+
 .empty-state {
   margin: auto;
   width: min(420px, 90%);
@@ -249,7 +253,7 @@ button:disabled {
 
 .rail-head {
   gap: 8px;
-  padding-right: 20px;
+  padding-right: 28px;
 }
 
 .status-pill {
@@ -267,8 +271,10 @@ button:disabled {
 .status-pill.danger { background: #fbe8e8; color: #9a4343; }
 
 .summary-card {
-  margin: 12px;
+  min-width: 0;
+  margin: 12px 16px 12px 12px;
   padding: 9px 12px;
+  overflow: hidden;
   background: #f7f8f8;
   border: 1px solid #e9ebed;
   border-radius: 10px;
@@ -276,16 +282,25 @@ button:disabled {
 
 .build-progress {
   margin: 0 0 9px;
-  padding: 3px 0 10px;
-  border-bottom: 1px solid #e3e6e8;
+  padding: 9px 10px 8px;
+  background: #fff;
+  border: 1px solid #e0e4e6;
+  border-radius: 9px;
 }
 
 .progress-head,
 .progress-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.progress-head {
+  justify-content: space-between;
+}
+
+.progress-meta {
+  justify-content: flex-end;
 }
 
 .progress-head {
@@ -330,13 +345,6 @@ button:disabled {
   color: #7b838b;
   font-size: 9px;
   line-height: 1.4;
-}
-
-#progressDetail {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 #progressElapsed {

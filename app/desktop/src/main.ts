@@ -61,7 +61,6 @@ type AppState = {
   fileSize: number | null;
   pageCount: number;
   currentPage: number;
-  zoom: number;
   summary: BuildSummary | null;
   manifest: Manifest | null;
   currentQuestion: number | null;
@@ -75,7 +74,6 @@ const state: AppState = {
   fileSize: null,
   pageCount: 0,
   currentPage: 1,
-  zoom: 1.15,
   summary: null,
   manifest: null,
   currentQuestion: null,
@@ -146,12 +144,10 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
               <div class="progress-bar" id="progressBar"></div>
             </div>
             <div class="progress-meta">
-              <span id="progressDetail">正在准备转换引擎…</span>
               <span id="progressElapsed">0 秒</span>
             </div>
           </div>
           <div class="summary-row"><span>识别题目</span><strong id="questionCount">—</strong></div>
-          <div class="summary-row"><span>跨页题</span><strong id="crossPageCount">—</strong></div>
           <div class="summary-row"><span>PPT 页数</span><strong id="slideCount">—</strong></div>
         </div>
 
@@ -210,7 +206,6 @@ const fileStatus = document.querySelector<HTMLSpanElement>("#fileStatus")!;
 const qaStatus = document.querySelector<HTMLSpanElement>("#qaStatus")!;
 const questionList = document.querySelector<HTMLDivElement>("#questionList")!;
 const questionCount = document.querySelector<HTMLElement>("#questionCount")!;
-const crossPageCount = document.querySelector<HTMLElement>("#crossPageCount")!;
 const slideCount = document.querySelector<HTMLElement>("#slideCount")!;
 let pptPreview: HTMLImageElement | null = null;
 const pptPlaceholder = document.querySelector<HTMLDivElement>("#pptPlaceholder")!;
@@ -222,7 +217,6 @@ const buildProgress = document.querySelector<HTMLDivElement>("#buildProgress")!;
 const progressStage = document.querySelector<HTMLSpanElement>("#progressStage")!;
 const progressPercent = document.querySelector<HTMLElement>("#progressPercent")!;
 const progressBar = document.querySelector<HTMLDivElement>("#progressBar")!;
-const progressDetail = document.querySelector<HTMLSpanElement>("#progressDetail")!;
 const progressElapsed = document.querySelector<HTMLSpanElement>("#progressElapsed")!;
 
 let progressStartedAt = 0;
@@ -267,11 +261,10 @@ function setBuildProgress(payload: BuildProgressPayload) {
   progressStage.textContent = payload.stage;
   progressPercent.textContent = `${percent}%`;
   progressBar.style.width = `${percent}%`;
-  progressDetail.textContent = payload.detail || "正在处理…";
   if (percent < 100) buildBtn.textContent = `正在生成 ${percent}%`;
 }
 
-function finishBuildProgress(success: boolean, detail?: string) {
+function finishBuildProgress(success: boolean) {
   if (progressTimer !== null) {
     window.clearInterval(progressTimer);
     progressTimer = null;
@@ -282,7 +275,6 @@ function finishBuildProgress(success: boolean, detail?: string) {
   setBuildProgress({
     percent: success ? 100 : Math.max(3, Number.parseInt(progressPercent.textContent || "0", 10) || 3),
     stage: success ? "生成完成" : "生成失败",
-    detail: detail || (success ? "PPT 与预览已生成" : "请查看下方错误提示"),
   });
 }
 
@@ -339,11 +331,14 @@ async function openBrowserPdf(file: File) {
 async function renderPage() {
   if (!pdfDoc) return;
   const page = await pdfDoc.getPage(state.currentPage);
-  const viewport = page.getViewport({ scale: state.zoom });
+  const baseViewport = page.getViewport({ scale: 1 });
+  const availableWidth = Math.max(320, viewer.clientWidth - 12);
+  const fitScale = availableWidth / baseViewport.width;
+  const viewport = page.getViewport({ scale: fitScale });
   const ctx = canvas.getContext("2d")!;
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
-  canvas.style.width = "min(100%, " + viewport.width + "px)";
+  canvas.style.width = `${Math.floor(availableWidth)}px`;
   canvas.style.height = "auto";
   await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
@@ -384,7 +379,6 @@ function resetResult() {
   qaStatus.textContent = "待处理";
   qaStatus.className = "status-pill neutral";
   questionCount.textContent = "—";
-  crossPageCount.textContent = "—";
   slideCount.textContent = "—";
   questionList.innerHTML = '<div class="rail-empty">生成后可按题号同步查看 PDF 与 PPT。</div>';
   pptPlaceholder.hidden = false;
@@ -462,13 +456,10 @@ function renderBuildResult() {
   if (!state.summary) return;
 
   const pass = state.summary.status === "PASS";
-  qaStatus.textContent = pass ? "通过" : "需确认";
+  qaStatus.textContent = pass ? "检查通过" : "需确认";
   qaStatus.className = pass ? "status-pill pass" : "status-pill warning";
 
   questionCount.textContent = String(state.summary.question_count);
-  crossPageCount.textContent = state.summary.cross_page_questions.length
-    ? state.summary.cross_page_questions.join("、")
-    : "0";
   slideCount.textContent = String(state.summary.slides.length);
 
   questionList.innerHTML = "";
@@ -538,13 +529,10 @@ async function buildPpt() {
 
     renderBuildResult();
     if (summary.question_count > 0) await setCurrentQuestion(1);
-    finishBuildProgress(
-      true,
-      `${summary.title || state.manifest.name} · ${summary.question_count} 道题 · ${summary.slides.length} 页`,
-    );
+    finishBuildProgress(true);
   } catch (error) {
     const message = String(error);
-    finishBuildProgress(false, "生成未完成，请查看错误原因");
+    finishBuildProgress(false);
     if (/PermissionError|permission denied|being used by another process/i.test(message)) {
       showError("生成失败：输出 PPT 正被 PowerPoint/WPS 占用，请关闭旧文件后重试。");
     } else {
@@ -597,6 +585,13 @@ pptViewer.addEventListener("wheel", (event) => {
   void changePptSlide(direction);
 }, { passive: false });
 
+let resizeTimer: number | null = null;
+window.addEventListener("resize", () => {
+  if (!pdfDoc) return;
+  if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => void renderPage(), 120);
+});
+
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   if (file) await openBrowserPdf(file);
@@ -623,7 +618,7 @@ nextPage.addEventListener("click", async () => {
 openOutput.addEventListener("click", async () => {
   if (nativeTauri && state.summary?.pptx) {
     try {
-      await invoke("open_parent_folder", { path: state.summary.pptx });
+      await invoke("open_ppt_folder", { path: state.summary.pptx });
     } catch (error) {
       showError(`无法打开PPT文件夹：${String(error)}`);
     }

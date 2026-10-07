@@ -25,16 +25,13 @@ fn read_text_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn open_parent_folder(path: String) -> Result<(), String> {
+fn open_ppt_folder(path: String) -> Result<(), String> {
     let target = Path::new(&path);
     if !target.exists() {
         return Err("Path does not exist.".into());
     }
-    let parent = target
-        .parent()
-        .ok_or_else(|| "Parent folder does not exist.".to_string())?;
     Command::new("explorer.exe")
-        .arg(parent)
+        .args(["/select,", &path])
         .spawn()
         .map_err(|e| format!("Cannot open Explorer: {e}"))?;
     Ok(())
@@ -60,7 +57,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_file_bytes,
             read_text_file,
-            open_parent_folder,
+            open_ppt_folder,
             smoke_test_pdf,
             smoke_test_auto_build
         ])
