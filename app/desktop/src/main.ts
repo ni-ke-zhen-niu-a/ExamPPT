@@ -23,6 +23,7 @@ type SlideInfo = {
 
 type BuildSummary = {
   status: "PASS" | "MANUAL_REQUIRED" | string;
+  title?: string;
   scan_status: string;
   layout_status: string;
   question_count: number;
@@ -151,6 +152,19 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         </div>
 
         <div class="summary-card">
+          <div class="build-progress" id="buildProgress" hidden>
+            <div class="progress-head">
+              <span id="progressStage">准备生成</span>
+              <strong id="progressPercent">0%</strong>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-meta">
+              <span id="progressDetail">正在准备转换引擎…</span>
+              <span id="progressElapsed">0 秒</span>
+            </div>
+          </div>
           <div class="summary-row"><span>识别题目</span><strong id="questionCount">—</strong></div>
           <div class="summary-row"><span>跨页题</span><strong id="crossPageCount">—</strong></div>
           <div class="summary-row"><span>PPT 页数</span><strong id="slideCount">—</strong></div>
@@ -222,6 +236,15 @@ const boundaryToggle = document.querySelector<HTMLButtonElement>("#boundaryToggl
 const applyBoundaries = document.querySelector<HTMLButtonElement>("#applyBoundaries")!;
 const boundaryLine = document.querySelector<HTMLDivElement>("#boundaryLine")!;
 const boundaryLabel = document.querySelector<HTMLSpanElement>("#boundaryLabel")!;
+const buildProgress = document.querySelector<HTMLDivElement>("#buildProgress")!;
+const progressStage = document.querySelector<HTMLSpanElement>("#progressStage")!;
+const progressPercent = document.querySelector<HTMLElement>("#progressPercent")!;
+const progressBar = document.querySelector<HTMLDivElement>("#progressBar")!;
+const progressDetail = document.querySelector<HTMLSpanElement>("#progressDetail")!;
+const progressElapsed = document.querySelector<HTMLSpanElement>("#progressElapsed")!;
+
+let progressStartedAt = 0;
+let progressTimer: number | null = null;
 
 let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]> | null = null;
 
@@ -233,6 +256,64 @@ function formatSize(bytes: number | null) {
   if (bytes === null) return "";
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+type BuildProgressPayload = {
+  percent: number;
+  stage: string;
+  detail?: string;
+};
+
+function updateElapsedTime() {
+  if (!progressStartedAt) return;
+  const seconds = Math.max(0, Math.floor((Date.now() - progressStartedAt) / 1000));
+  progressElapsed.textContent = `${seconds} 秒`;
+}
+
+function beginBuildProgress() {
+  if (progressTimer !== null) window.clearInterval(progressTimer);
+  progressStartedAt = Date.now();
+  buildProgress.hidden = false;
+  buildProgress.classList.remove("complete", "error");
+  progressTimer = window.setInterval(updateElapsedTime, 1000);
+  setBuildProgress({ percent: 3, stage: "正在启动转换引擎", detail: "首次启动可能需要几秒，请稍候…" });
+  updateElapsedTime();
+}
+
+function setBuildProgress(payload: BuildProgressPayload) {
+  const percent = Math.max(0, Math.min(100, Math.round(payload.percent)));
+  progressStage.textContent = payload.stage;
+  progressPercent.textContent = `${percent}%`;
+  progressBar.style.width = `${percent}%`;
+  progressDetail.textContent = payload.detail || "正在处理…";
+  if (percent < 100) buildBtn.textContent = `正在生成 ${percent}%`;
+}
+
+function finishBuildProgress(success: boolean, detail?: string) {
+  if (progressTimer !== null) {
+    window.clearInterval(progressTimer);
+    progressTimer = null;
+  }
+  updateElapsedTime();
+  buildProgress.classList.toggle("complete", success);
+  buildProgress.classList.toggle("error", !success);
+  setBuildProgress({
+    percent: success ? 100 : Math.max(3, Number.parseInt(progressPercent.textContent || "0", 10) || 3),
+    stage: success ? "生成完成" : "生成失败",
+    detail: detail || (success ? "PPT 与预览已生成" : "请查看下方错误提示"),
+  });
+}
+
+function handleProgressLine(line: string) {
+  const prefix = "EXAMPPT_PROGRESS:";
+  if (!line.startsWith(prefix)) return false;
+  try {
+    const payload = JSON.parse(line.slice(prefix.length)) as BuildProgressPayload;
+    setBuildProgress(payload);
+  } catch {
+    // Ignore malformed progress lines without affecting the final build result.
+  }
+  return true;
 }
 
 function boundaryFilePath() {
@@ -395,6 +476,13 @@ async function chooseFile() {
 }
 
 function resetResult() {
+  if (progressTimer !== null) {
+    window.clearInterval(progressTimer);
+    progressTimer = null;
+  }
+  progressStartedAt = 0;
+  buildProgress.hidden = true;
+  buildProgress.classList.remove("complete", "error");
   qaStatus.textContent = "待处理";
   qaStatus.className = "status-pill neutral";
   questionCount.textContent = "—";
@@ -503,9 +591,10 @@ function renderBuildResult() {
   }
 
   openOutput.disabled = false;
+  const title = state.summary.title || state.manifest?.name || "试卷";
   footerNote.textContent = pass
-    ? "QA 通过：点击题号可同步核对原 PDF 与 PPT"
-    : "存在需要人工确认的项目，请逐题核对";
+    ? `《${title}》生成完成 · QA 通过 · 点击题号可同步核对 PDF 与 PPT`
+    : `《${title}》已生成，但存在需要人工确认的项目`;
 }
 
 async function buildPpt() {
@@ -517,10 +606,10 @@ async function buildPpt() {
 
   const oldText = buildBtn.textContent;
   buildBtn.disabled = true;
-  buildBtn.textContent = "正在生成…";
   qaStatus.textContent = "处理中";
   qaStatus.className = "status-pill working";
-  footerNote.textContent = "正在自动切题、合并跨页题、排版并执行 QA…";
+  footerNote.textContent = "正在生成，请查看中间进度；界面会持续显示已用时间。";
+  beginBuildProgress();
 
   try {
     const args = ["build", state.sourcePath];
@@ -528,11 +617,31 @@ async function buildPpt() {
     if (boundaries && Object.keys(state.boundaryOverrides).length > 0) {
       args.push("--boundaries", boundaries);
     }
-    const command = Command.sidecar("binaries/examppt-core", args);
-    const output = await command.execute();
 
-    const stdout = output.stdout.trim();
-    if (!stdout) throw new Error(output.stderr || "ExamPPT Core 未返回结果");
+    const command = Command.sidecar("binaries/examppt-core", args);
+    const stdoutLines: string[] = [];
+    const stderrLines: string[] = [];
+
+    command.stdout.on("data", (line) => {
+      stdoutLines.push(line);
+    });
+    command.stderr.on("data", (line) => {
+      const text = line.trim();
+      if (!handleProgressLine(text) && text) stderrLines.push(text);
+    });
+
+    const completed = new Promise<void>((resolve, reject) => {
+      command.on("close", () => resolve());
+      command.on("error", (error) => reject(new Error(error)));
+    });
+
+    await command.spawn();
+    await completed;
+
+    const stdout = stdoutLines.join("\n").trim();
+    if (!stdout) {
+      throw new Error(stderrLines.join("\n") || "ExamPPT Core 未返回结果");
+    }
 
     const summary = JSON.parse(stdout) as BuildSummary;
     state.summary = summary;
@@ -542,8 +651,18 @@ async function buildPpt() {
 
     renderBuildResult();
     if (summary.question_count > 0) await setCurrentQuestion(1);
+    finishBuildProgress(
+      true,
+      `${summary.title || state.manifest.name} · ${summary.question_count} 道题 · ${summary.slides.length} 页`,
+    );
   } catch (error) {
-    showError(`生成失败：${String(error)}`);
+    const message = String(error);
+    finishBuildProgress(false, "生成未完成，请查看错误原因");
+    if (/PermissionError|permission denied|being used by another process/i.test(message)) {
+      showError("生成失败：输出 PPT 正被 PowerPoint/WPS 占用，请关闭旧文件后重试。");
+    } else {
+      showError(`生成失败：${message}`);
+    }
   } finally {
     buildBtn.disabled = false;
     buildBtn.textContent = oldText || "生成讲题 PPT";

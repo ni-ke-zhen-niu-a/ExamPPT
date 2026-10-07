@@ -16,6 +16,17 @@
           "args": true
         }
       ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/examppt-core",
+          "cmd": "binaries/examppt-core",
+          "sidecar": true,
+          "args": true
+        }
+      ]
     }
   ]
 }

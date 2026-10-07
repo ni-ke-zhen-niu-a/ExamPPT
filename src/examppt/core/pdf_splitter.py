@@ -46,10 +46,50 @@ def _group_lines(words: list[dict], y_tol: float = 2.5) -> list[dict]:
     return lines
 
 
-def _detect_candidates(pdf_path: Path) -> tuple[list[dict], list[QuestionAnchor], list[dict]]:
+def _detect_title_from_lines(
+    lines: list[dict],
+    page_width: float,
+    page_height: float,
+) -> str | None:
+    """Pick a likely exam title from the top area of the first page."""
+    banned_tokens = (
+        "学校", "姓名", "班级", "考号", "座号", "准考证", "得分",
+        "密封线", "装订线", "答题", "注意事项",
+    )
+    title_tokens = ("试卷", "试题", "考试", "月考", "期中", "期末", "模拟", "检测", "练习")
+    candidates: list[tuple[float, str]] = []
+
+    for line in lines:
+        text = re.sub(r"\s+", "", str(line.get("text", "")).strip())
+        if not (4 <= len(text) <= 60):
+            continue
+        if float(line["top"]) > page_height * 0.22:
+            continue
+        if QUESTION_RE.match(text) or SECTION_RE.match(text):
+            continue
+        if any(token in text for token in banned_tokens):
+            continue
+
+        center = (float(line["x0"]) + float(line["x1"])) / 2.0
+        center_score = max(0.0, 1.0 - abs(center - page_width / 2.0) / (page_width / 2.0))
+        line_height = max(1.0, float(line["bottom"]) - float(line["top"]))
+        size_score = min(line_height / 18.0, 1.2)
+        keyword_score = 2.2 if any(token in text for token in title_tokens) else 0.0
+        top_score = max(0.0, 1.0 - float(line["top"]) / (page_height * 0.22))
+        candidates.append((keyword_score + center_score + size_score + top_score, text))
+
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item[0])[1]
+
+
+def _detect_candidates(
+    pdf_path: Path,
+) -> tuple[list[dict], list[QuestionAnchor], list[dict], str | None]:
     pages: list[dict] = []
     candidates: list[QuestionAnchor] = []
     section_candidates: list[dict] = []
+    detected_title: str | None = None
 
     with pdfplumber.open(pdf_path) as doc:
         for page_no, page in enumerate(doc.pages, 1):
@@ -60,6 +100,12 @@ def _detect_candidates(pdf_path: Path) -> tuple[list[dict], list[QuestionAnchor]
                 use_text_flow=False,
             )
             lines = _group_lines(words)
+            if page_no == 1:
+                detected_title = _detect_title_from_lines(
+                    lines,
+                    float(page.width),
+                    float(page.height),
+                )
             pages.append(
                 {
                     "page": page_no,
@@ -97,7 +143,7 @@ def _detect_candidates(pdf_path: Path) -> tuple[list[dict], list[QuestionAnchor]
                         }
                     )
 
-    return pages, candidates, section_candidates
+    return pages, candidates, section_candidates, detected_title
 
 
 def _select_sequential_anchors(candidates: list[QuestionAnchor]) -> tuple[list[QuestionAnchor], list[str]]:
@@ -444,7 +490,7 @@ def scan_pdf(
     boundary_overrides: dict[int, dict] | None = None,
 ) -> ScanResult:
     pdf_path = Path(pdf_path).resolve()
-    pages, candidates, section_candidates = _detect_candidates(pdf_path)
+    pages, candidates, section_candidates, detected_title = _detect_candidates(pdf_path)
     anchors, warnings = _select_sequential_anchors(candidates)
     anchors, override_warnings = _apply_anchor_overrides(anchors, pages, boundary_overrides)
     warnings.extend(override_warnings)
@@ -452,7 +498,7 @@ def scan_pdf(
     if not anchors:
         return ScanResult(
             source_pdf=str(pdf_path),
-            name=pdf_path.stem,
+            name=detected_title or pdf_path.stem,
             pages=pages,
             questions=[],
             sections=[],
@@ -469,7 +515,7 @@ def scan_pdf(
 
     result = ScanResult(
         source_pdf=str(pdf_path),
-        name=pdf_path.stem,
+        name=detected_title or pdf_path.stem,
         pages=pages,
         questions=regions,
         sections=sections,

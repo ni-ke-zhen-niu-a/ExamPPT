@@ -323,6 +323,92 @@ button:disabled {
   border-radius: 10px;
 }
 
+.build-progress {
+  margin: 0 0 9px;
+  padding: 3px 0 10px;
+  border-bottom: 1px solid #e3e6e8;
+}
+
+.progress-head,
+.progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.progress-head {
+  color: #384047;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.progress-head strong {
+  color: #263238;
+  font-size: 11px;
+}
+
+.progress-track {
+  height: 7px;
+  margin: 7px 0 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e8ea;
+}
+
+.progress-bar {
+  position: relative;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #5f737d;
+  transition: width .35s ease;
+}
+
+.progress-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.48), transparent);
+  transform: translateX(-100%);
+  animation: progress-sweep 1.4s linear infinite;
+}
+
+.progress-meta {
+  min-width: 0;
+  color: #7b838b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+#progressDetail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#progressElapsed {
+  flex: 0 0 auto;
+}
+
+.build-progress.complete .progress-bar {
+  background: #688879;
+}
+
+.build-progress.error .progress-bar {
+  background: #b75b5b;
+}
+
+.build-progress.complete .progress-bar::after,
+.build-progress.error .progress-bar::after {
+  animation: none;
+}
+
+@keyframes progress-sweep {
+  to { transform: translateX(100%); }
+}
+
 .summary-row {
   min-height: 30px;
   display: flex;

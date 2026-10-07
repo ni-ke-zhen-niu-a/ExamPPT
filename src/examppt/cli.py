@@ -21,6 +21,19 @@ def _configure_utf8_stdio() -> None:
             reconfigure(encoding="utf-8", errors="replace")
 
 
+def _emit_progress(percent: int, stage: str, detail: str = "") -> None:
+    payload = {
+        "percent": max(0, min(100, int(percent))),
+        "stage": stage,
+        "detail": detail,
+    }
+    print(
+        "EXAMPPT_PROGRESS:" + json.dumps(payload, ensure_ascii=False),
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def doctor() -> int:
     print(f"ExamPPT {__version__}")
     print(f"Python: {platform.python_version()}")
@@ -88,6 +101,7 @@ def build_command(args) -> int:
     workdir = _default_workdir(pdf_path, args.out_dir)
     workdir.mkdir(parents=True, exist_ok=True)
 
+    _emit_progress(8, "正在解析 PDF", "读取页面结构并识别题目边界")
     result = scan_pdf(
         pdf_path,
         output_dir=workdir,
@@ -97,15 +111,26 @@ def build_command(args) -> int:
     )
     if getattr(args, "title", None):
         result.name = args.title
+    _emit_progress(
+        52,
+        "题目识别完成",
+        f"识别到 {len(result.questions)} 道题，正在整理切题结果",
+    )
     manifest_path = workdir / "manifest.json"
     save_scan_result(result, manifest_path)
 
+    _emit_progress(60, "正在生成 PPT", f"试卷标题：{result.name}")
     pptx_path = workdir / f"{pdf_path.stem}_讲题版.pptx"
     qa_path = workdir / "qa.json"
     report = build_ppt(
         manifest_path=manifest_path,
         output_pptx=pptx_path,
         qa_json=qa_path,
+    )
+    _emit_progress(
+        78,
+        "PPT 排版完成",
+        f"已生成 {report['slide_count']} 页，正在生成放映预览",
     )
     preview_dir = workdir / "preview"
     preview_files = render_slide_previews(
@@ -114,6 +139,7 @@ def build_command(args) -> int:
         output_dir=preview_dir,
     )
 
+    _emit_progress(96, "正在完成检查", "预览已生成，正在汇总 QA 结果")
     combined_status = (
         "PASS"
         if result.status == "PASS" and report["status"] == "PASS"
@@ -123,9 +149,10 @@ def build_command(args) -> int:
         "status": combined_status,
         "scan_status": result.status,
         "layout_status": report["status"],
+        "title": result.name,
         "question_count": len(result.questions),
         "cross_page_questions": [q.number for q in result.questions if q.cross_page],
-        "pptx": str(pptx_path),
+        "pptx": str(report["output"]),
         "manifest": str(manifest_path),
         "qa": str(qa_path),
         "preview_dir": str(preview_dir),
@@ -134,6 +161,11 @@ def build_command(args) -> int:
         "warnings": result.warnings,
         "violations": report["violations"],
     }
+    _emit_progress(
+        100,
+        "生成完成",
+        f"{len(result.questions)} 道题 · {report['slide_count']} 页 PPT",
+    )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if combined_status == "PASS" else 3
 
