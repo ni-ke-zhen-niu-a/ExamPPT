@@ -184,97 +184,6 @@ def _select_sequential_anchors(candidates: list[QuestionAnchor]) -> tuple[list[Q
     return best, warnings
 
 
-def load_boundary_overrides(path: str | Path | None) -> dict[int, dict]:
-    """Load manual question-start overrides.
-
-    File format:
-    {
-      "question_starts": {
-        "7": {"page": 1, "top": 686.46},
-        "8": {"page": 2, "top": 171.66}
-      }
-    }
-
-    Only page/top are required. Existing anchor x/text metadata is preserved.
-    """
-    if not path:
-        return {}
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    starts = data.get("question_starts", data)
-    if not isinstance(starts, dict):
-        raise ValueError("Boundary override file must contain an object named 'question_starts'.")
-
-    overrides: dict[int, dict] = {}
-    for raw_number, value in starts.items():
-        if not isinstance(value, dict):
-            raise ValueError(f"Q{raw_number}: boundary override must be an object.")
-        number = int(raw_number)
-        if "page" not in value or "top" not in value:
-            raise ValueError(f"Q{number}: boundary override requires page and top.")
-        overrides[number] = {"page": int(value["page"]), "top": float(value["top"])}
-    return overrides
-
-
-def _apply_anchor_overrides(
-    anchors: list[QuestionAnchor],
-    pages: list[dict],
-    overrides: dict[int, dict] | None,
-) -> tuple[list[QuestionAnchor], list[str]]:
-    if not overrides:
-        return anchors, []
-
-    page_meta = {int(p["page"]): p for p in pages}
-    by_number = {a.number: a for a in anchors}
-    warnings: list[str] = []
-
-    for number, spec in sorted(overrides.items()):
-        page = int(spec["page"])
-        top = float(spec["top"])
-        meta = page_meta.get(page)
-        if meta is None:
-            warnings.append(f"Q{number}: manual boundary page {page} does not exist.")
-            continue
-        if top < 0 or top >= float(meta["height"]):
-            warnings.append(f"Q{number}: manual boundary top {top} is outside page {page}.")
-            continue
-
-        old = by_number.get(number)
-        if old is None:
-            by_number[number] = QuestionAnchor(
-                number=number,
-                page=page,
-                x0=56.0,
-                top=top,
-                bottom=top + 12.0,
-                text=f"{number}．[manual boundary]",
-                confidence=1.0,
-            )
-        else:
-            line_height = max(1.0, old.bottom - old.top)
-            by_number[number] = QuestionAnchor(
-                number=number,
-                page=page,
-                x0=old.x0,
-                top=top,
-                bottom=top + line_height,
-                text=old.text,
-                confidence=1.0,
-            )
-
-    ordered_by_number = [by_number[n] for n in sorted(by_number)]
-    numbers = [a.number for a in ordered_by_number]
-    if numbers and numbers != list(range(1, max(numbers) + 1)):
-        warnings.append(f"Manual boundary sequence is not contiguous: {numbers}")
-
-    for prev, current in zip(ordered_by_number, ordered_by_number[1:]):
-        if (current.page, current.top) <= (prev.page, prev.top):
-            warnings.append(
-                f"Q{current.number}: manual boundary must be after Q{prev.number} in PDF order."
-            )
-
-    return ordered_by_number, warnings
-
-
 def _detect_sections(section_candidates: list[dict], anchors: list[QuestionAnchor]) -> list[Section]:
     sections: list[Section] = []
     for s in sorted(section_candidates, key=lambda x: (x["page"], x["top"])):
@@ -487,13 +396,10 @@ def scan_pdf(
     output_dir: str | Path | None = None,
     render: bool = True,
     dpi: int = 180,
-    boundary_overrides: dict[int, dict] | None = None,
 ) -> ScanResult:
     pdf_path = Path(pdf_path).resolve()
     pages, candidates, section_candidates, detected_title = _detect_candidates(pdf_path)
     anchors, warnings = _select_sequential_anchors(candidates)
-    anchors, override_warnings = _apply_anchor_overrides(anchors, pages, boundary_overrides)
-    warnings.extend(override_warnings)
 
     if not anchors:
         return ScanResult(

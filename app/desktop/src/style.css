@@ -80,15 +80,6 @@ button:disabled {
   gap: 10px;
 }
 
-.local-badge {
-  font-size: 12px;
-  color: #506058;
-  background: #eef4f0;
-  border: 1px solid #dbe8e0;
-  padding: 7px 10px;
-  border-radius: 999px;
-}
-
 .primary-btn, .secondary-btn, .ghost-btn {
   border-radius: 9px;
   padding: 10px 15px;
@@ -121,12 +112,6 @@ button:disabled {
 .primary-btn.compact {
   padding: 7px 10px;
   font-size: 12px;
-}
-
-.ghost-btn.active {
-  background: #fff0f0;
-  border-color: #e8b8b8;
-  color: #9a4343;
 }
 
 .pdf-head-actions {
@@ -257,52 +242,18 @@ button:disabled {
   border: 1px solid #dfe2e5;
 }
 
-.boundary-line {
-  position: absolute;
-  z-index: 8;
-  height: 14px;
-  transform: translateY(-7px);
-  cursor: ns-resize;
-  touch-action: none;
-}
-
-.boundary-line::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 6px;
-  height: 2px;
-  background: #c94f4f;
-  box-shadow: 0 0 0 1px rgba(255,255,255,.85);
-}
-
-.boundary-line span {
-  position: absolute;
-  right: 7px;
-  bottom: 8px;
-  padding: 3px 7px;
-  border-radius: 6px;
-  background: #fff;
-  border: 1px solid #e5b7b7;
-  color: #a33f3f;
-  font-size: 10px;
-  line-height: 1.2;
-  white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(50, 30, 30, .08);
-}
-
-.boundary-line.dragging::before {
-  height: 3px;
-  background: #a93636;
-}
-
 .rail {
   display: grid;
   grid-template-rows: 66px auto 1fr;
 }
 
+.rail-head {
+  gap: 8px;
+  padding-right: 20px;
+}
+
 .status-pill {
+  flex: 0 0 auto;
   font-size: 11px;
   border-radius: 999px;
   padding: 5px 8px;

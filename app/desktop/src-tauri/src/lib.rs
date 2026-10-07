@@ -25,24 +25,16 @@ fn read_text_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn write_text_file(path: String, content: String) -> Result<(), String> {
-    if !allowed_extension(&path, &["json"]) {
-        return Err("Only JSON text files are allowed.".into());
-    }
+fn open_parent_folder(path: String) -> Result<(), String> {
     let target = Path::new(&path);
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Cannot create folder: {e}"))?;
-    }
-    fs::write(target, content).map_err(|e| format!("Cannot write text file: {e}"))
-}
-
-#[tauri::command]
-fn reveal_path(path: String) -> Result<(), String> {
-    if !Path::new(&path).exists() {
+    if !target.exists() {
         return Err("Path does not exist.".into());
     }
+    let parent = target
+        .parent()
+        .ok_or_else(|| "Parent folder does not exist.".to_string())?;
     Command::new("explorer.exe")
-        .args(["/select,", &path])
+        .arg(parent)
         .spawn()
         .map_err(|e| format!("Cannot open Explorer: {e}"))?;
     Ok(())
@@ -68,8 +60,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_file_bytes,
             read_text_file,
-            write_text_file,
-            reveal_path,
+            open_parent_folder,
             smoke_test_pdf,
             smoke_test_auto_build
         ])
