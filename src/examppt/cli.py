@@ -13,6 +13,14 @@ from .core.pdf_splitter import load_boundary_overrides, save_scan_result, scan_p
 from .core.preview_renderer import render_slide_previews
 
 
+def _configure_utf8_stdio() -> None:
+    """Keep machine-readable CLI JSON valid when stdout/stderr are piped on Windows."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def doctor() -> int:
     print(f"ExamPPT {__version__}")
     print(f"Python: {platform.python_version()}")
@@ -131,6 +139,7 @@ def build_command(args) -> int:
 
 
 def main() -> int:
+    _configure_utf8_stdio()
     parser = argparse.ArgumentParser(prog="exam-ppt", description="PDF试卷无损转PPT 工具")
     parser.add_argument("--version", action="version", version=f"ExamPPT {__version__}")
     sub = parser.add_subparsers(dest="cmd")
