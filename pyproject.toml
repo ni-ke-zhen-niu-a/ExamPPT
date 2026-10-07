@@ -1,14 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "examppt"
-version = "0.0.1"
+version = "0.0.2"
 description = "PDF试卷无损转PPT 工具"
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 dependencies = [
   "python-pptx>=1.0",
-  "Pillow>=10",
-  "numpy>=1.26"
+  "Pillow>=12.2",
+  "numpy>=1.26",
+  "pdfplumber>=0.11.10",
+  "pypdfium2>=5.14"
 ]
 
 [project.scripts]
 exam-ppt = "examppt.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+examppt = ["layout_rules.json"]

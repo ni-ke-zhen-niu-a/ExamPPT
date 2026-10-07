@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "gold_standard": "九年级数学月考模拟试卷2_V2_放映检查修正版.pptx",
+  "version": "1.1",
+  "gold_standard": "九年级数学月考模拟试卷2_V3_简化页眉版.pptx",
   "slide": {
     "width_in": 13.333,
     "height_in": 7.5
@@ -11,7 +11,11 @@
     "content_top_in": 0.66,
     "bottom_in": 0.25,
     "min_bottom_margin_in": 0.2,
-    "gap_in": 0.1
+    "gap_in": 0.1,
+    "max_questions_per_slide": 3,
+    "max_multi_fill_ratio": 0.84,
+    "long_pair_threshold_in": 2.2,
+    "separate_long_pairs_in_solution_section": true
   },
   "header": {
     "title_font": "Microsoft YaHei",
