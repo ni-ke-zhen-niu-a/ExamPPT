@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.server-data/
 dist/
 build/
 *.egg-info/
@@ -9,6 +10,7 @@ node_modules/
 app/desktop/dist/
 app/desktop/src-tauri/target/
 app/desktop/src-tauri/binaries/*.exe
+miniapp/project.private.config.json
 .idea/
 .vscode/
 *.pptx

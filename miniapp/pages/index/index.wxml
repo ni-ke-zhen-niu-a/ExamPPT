@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="hero">
+    <view class="logo">E</view>
+    <view>
+      <view class="title">PDF试卷转PPT助手</view>
+      <view class="subtitle">上传试卷，自动生成课堂讲题PPT</view>
+    </view>
+  </view>
+
+  <view class="card upload-card">
+    <view class="card-title">选择 PDF 试卷</view>
+    <view class="file-row" wx:if="{{fileName}}">
+      <view class="file-name">{{fileName}}</view>
+      <view class="file-size">{{fileSize}}</view>
+    </view>
+    <button class="secondary" bindtap="choosePdf" disabled="{{busy}}">{{fileName ? '重新选择' : '选择PDF'}}</button>
+    <button class="primary" bindtap="startJob" disabled="{{!filePath || busy}}">
+      {{busy ? '正在生成…' : '生成讲题PPT'}}
+    </button>
+  </view>
+
+  <view class="card" wx:if="{{jobId}}">
+    <view class="progress-head">
+      <view class="stage">{{stage}}</view>
+      <view class="percent">{{percent}}%</view>
+    </view>
+    <view class="track">
+      <view class="bar" style="width: {{percent}}%;"></view>
+    </view>
+
+    <view class="stats" wx:if="{{done}}">
+      <view class="stat">
+        <view class="stat-label">识别题目</view>
+        <view class="stat-value">{{questionCount}}</view>
+      </view>
+      <view class="stat">
+        <view class="stat-label">PPT页数</view>
+        <view class="stat-value">{{slideCount}}</view>
+      </view>
+    </view>
+
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+
+    <button class="primary" wx:if="{{downloadReady}}" bindtap="downloadPpt">下载PPT</button>
+  </view>
+
+  <view class="tip">
+    当前为开发联调版：PDF会发送到本地 ExamPPT 服务进行处理。
+  </view>
+</view>

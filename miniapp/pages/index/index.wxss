@@ -1,0 +1,165 @@
+.page {
+  padding: 36rpx 28rpx 56rpx;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  margin: 16rpx 0 34rpx;
+}
+
+.logo {
+  width: 78rpx;
+  height: 78rpx;
+  border-radius: 22rpx;
+  background: #20333b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  font-weight: 800;
+}
+
+.title {
+  font-size: 38rpx;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin-top: 6rpx;
+  color: #7b858c;
+  font-size: 24rpx;
+}
+
+.card {
+  margin-bottom: 24rpx;
+  padding: 30rpx;
+  background: #fff;
+  border: 1rpx solid #e6eaec;
+  border-radius: 26rpx;
+}
+
+.card-title {
+  margin-bottom: 24rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.file-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 22rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 18rpx;
+  background: #f5f7f8;
+}
+
+.file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 26rpx;
+}
+
+.file-size {
+  flex: 0 0 auto;
+  color: #8a9398;
+  font-size: 24rpx;
+}
+
+button {
+  margin-top: 18rpx;
+  border-radius: 18rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.primary {
+  background: #20333b;
+  color: #fff;
+}
+
+.secondary {
+  background: #eef2f3;
+  color: #26383f;
+}
+
+.progress-head,
+.stats,
+.stat {
+  display: flex;
+  align-items: center;
+}
+
+.progress-head,
+.stats {
+  justify-content: space-between;
+}
+
+.stage {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.percent {
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.track {
+  height: 14rpx;
+  margin: 20rpx 0 26rpx;
+  overflow: hidden;
+  border-radius: 999rpx;
+  background: #e5eaec;
+}
+
+.bar {
+  height: 100%;
+  border-radius: inherit;
+  background: #6b887b;
+  transition: width .3s ease;
+}
+
+.stats {
+  gap: 18rpx;
+  margin-top: 8rpx;
+}
+
+.stat {
+  flex: 1;
+  justify-content: space-between;
+  padding: 22rpx;
+  border-radius: 18rpx;
+  background: #f6f8f8;
+}
+
+.stat-label {
+  color: #67747a;
+  font-size: 25rpx;
+}
+
+.stat-value {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.error {
+  margin-top: 18rpx;
+  padding: 18rpx;
+  color: #a23d3d;
+  background: #fff1f1;
+  border-radius: 14rpx;
+  font-size: 24rpx;
+}
+
+.tip {
+  padding: 0 8rpx;
+  color: #899399;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
