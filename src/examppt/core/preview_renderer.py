@@ -90,7 +90,9 @@ def render_slide_previews(
 
         for entry in slide.get("entries", []):
             q = int(entry["q"])
-            image_path = question_images.get(q)
+            image_path = Path(entry["image"]) if entry.get("image") else question_images.get(q)
+            if image_path and not image_path.is_absolute():
+                image_path = (manifest_path.parent / image_path).resolve()
             if not image_path or not image_path.exists():
                 continue
             with Image.open(image_path) as im:

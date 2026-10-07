@@ -127,10 +127,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 
       <aside class="rail">
         <div class="rail-head">
-          <div>
-            <div class="panel-kicker">检查</div>
-            <h2>题目导航</h2>
-          </div>
+          <h2>题目导航</h2>
           <span class="status-pill neutral" id="qaStatus">待处理</span>
         </div>
 

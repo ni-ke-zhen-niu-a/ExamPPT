@@ -319,6 +319,7 @@ def build(
                     "top": round(y, 3),
                     "bottom": round(y + height, 3),
                     "height": round(height, 3),
+                    "image": str(qimgs[q]["path"]),
                 }
             )
             y += height + layout["gap_in"]
