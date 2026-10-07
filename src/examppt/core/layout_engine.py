@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from io import BytesIO
 import json
 from pathlib import Path
@@ -22,6 +23,24 @@ def load_json(path: str | Path) -> dict:
 
 def _pictures(slide):
     return [shape for shape in slide.shapes if shape.shape_type == 13]
+
+
+def _save_with_lock_fallback(prs: Presentation, output_pptx: Path) -> tuple[Path, bool]:
+    """Save to the requested path, or a timestamped sibling when Office locks it."""
+    try:
+        prs.save(str(output_pptx))
+        return output_pptx, False
+    except PermissionError:
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fallback = output_pptx.with_name(f"{output_pptx.stem}_{stamp}{output_pptx.suffix}")
+        counter = 2
+        while fallback.exists():
+            fallback = output_pptx.with_name(
+                f"{output_pptx.stem}_{stamp}_{counter}{output_pptx.suffix}"
+            )
+            counter += 1
+        prs.save(str(fallback))
+        return fallback, True
 
 
 def _section_title(manifest: dict, q: int) -> str:
@@ -320,7 +339,7 @@ def build(
 
     output_pptx = Path(output_pptx)
     output_pptx.parent.mkdir(parents=True, exist_ok=True)
-    prs.save(str(output_pptx))
+    output_pptx, output_renamed_due_to_lock = _save_with_lock_fallback(prs, output_pptx)
 
     seen = [q for slide in qa_slides for q in slide["questions"]]
     expected = list(range(1, question_count + 1))
@@ -340,6 +359,7 @@ def build(
         "slide_count": len(qa_slides),
         "question_count": question_count,
         "fixed_question_width_in": layout["question_width_in"],
+        "output_renamed_due_to_lock": output_renamed_due_to_lock,
         "questions": seen,
         "compacted_questions": compacted_questions,
         "slides": qa_slides,
