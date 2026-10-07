@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.idea/
+.vscode/
+*.pptx
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.log
+.DS_Store

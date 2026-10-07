@@ -1,0 +1,14 @@
+[project]
+name = "examppt"
+version = "0.0.1"
+description = "PDF试卷无损转PPT 工具"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = [
+  "python-pptx>=1.0",
+  "Pillow>=10",
+  "numpy>=1.26"
+]
+
+[project.scripts]
+exam-ppt = "examppt.cli:main"
