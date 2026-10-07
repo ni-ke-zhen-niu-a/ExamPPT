@@ -9,7 +9,7 @@ import sys
 
 from . import __version__
 from .core.layout_engine import build as build_ppt
-from .core.pdf_splitter import save_scan_result, scan_pdf
+from .core.pdf_splitter import load_boundary_overrides, save_scan_result, scan_pdf
 from .core.preview_renderer import render_slide_previews
 
 
@@ -47,7 +47,13 @@ def scan_command(args) -> int:
     workdir = _default_workdir(pdf_path, args.out_dir)
     workdir.mkdir(parents=True, exist_ok=True)
 
-    result = scan_pdf(pdf_path, output_dir=workdir, render=not args.no_render, dpi=args.dpi)
+    result = scan_pdf(
+        pdf_path,
+        output_dir=workdir,
+        render=not args.no_render,
+        dpi=args.dpi,
+        boundary_overrides=load_boundary_overrides(getattr(args, "boundaries", None)),
+    )
     if getattr(args, "title", None):
         result.name = args.title
     manifest_path = workdir / "manifest.json"
@@ -74,7 +80,13 @@ def build_command(args) -> int:
     workdir = _default_workdir(pdf_path, args.out_dir)
     workdir.mkdir(parents=True, exist_ok=True)
 
-    result = scan_pdf(pdf_path, output_dir=workdir, render=True, dpi=args.dpi)
+    result = scan_pdf(
+        pdf_path,
+        output_dir=workdir,
+        render=True,
+        dpi=args.dpi,
+        boundary_overrides=load_boundary_overrides(getattr(args, "boundaries", None)),
+    )
     if getattr(args, "title", None):
         result.name = args.title
     manifest_path = workdir / "manifest.json"
@@ -131,12 +143,14 @@ def main() -> int:
     scan.add_argument("--dpi", type=int, default=180)
     scan.add_argument("--no-render", action="store_true")
     scan.add_argument("--title", help="覆盖PPT页眉中的试卷名称")
+    scan.add_argument("--boundaries", help="人工题目起始边界 JSON 文件")
 
     build = sub.add_parser("build", help="自动切题并生成课堂讲评 PPT")
     build.add_argument("pdf")
     build.add_argument("--out-dir")
     build.add_argument("--dpi", type=int, default=180)
     build.add_argument("--title", help="覆盖PPT页眉中的试卷名称")
+    build.add_argument("--boundaries", help="人工题目起始边界 JSON 文件")
 
     args = parser.parse_args()
     if args.cmd == "doctor":
