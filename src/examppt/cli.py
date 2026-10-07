@@ -10,6 +10,7 @@ import sys
 from . import __version__
 from .core.layout_engine import build as build_ppt
 from .core.pdf_splitter import save_scan_result, scan_pdf
+from .core.preview_renderer import render_slide_previews
 
 
 def doctor() -> int:
@@ -86,6 +87,12 @@ def build_command(args) -> int:
         output_pptx=pptx_path,
         qa_json=qa_path,
     )
+    preview_dir = workdir / "preview"
+    preview_files = render_slide_previews(
+        manifest_path=manifest_path,
+        qa_json=qa_path,
+        output_dir=preview_dir,
+    )
 
     combined_status = (
         "PASS"
@@ -101,6 +108,9 @@ def build_command(args) -> int:
         "pptx": str(pptx_path),
         "manifest": str(manifest_path),
         "qa": str(qa_path),
+        "preview_dir": str(preview_dir),
+        "preview_files": preview_files,
+        "slides": report["slides"],
         "warnings": result.warnings,
         "violations": report["violations"],
     }

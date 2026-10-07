@@ -4,7 +4,7 @@
 
 把 PDF 试卷转换成真正适合课堂讲评的 PPT：**原题不改、顺序不变、整题不跨页、视觉字号一致，并执行自动 QA。**
 
-> 当前状态：Pre-alpha / v0.0.2。自动切题、跨页题合并、固定规则排版与 PowerPoint 实际渲染回归已经跑通；桌面 GUI、人工边界调整、WPS 实机 QA、答案逐步揭示和安装包仍在开发。
+> 当前状态：Pre-alpha / v0.0.2。自动切题、跨页题合并、固定规则排版与 PowerPoint 实际渲染回归已经跑通；桌面 GUI 骨架和 PDF↔PPT 同题同步链路已进入实现阶段，人工边界调整、WPS 实机 QA、答案逐步揭示和安装包仍在开发。
 
 ## 项目定位
 
@@ -86,6 +86,7 @@ exam-ppt build "试卷.pdf" --title "九年级数学月考模拟试卷2"
 - 自动切题设计：`docs/AUTO_SPLIT.md`
 - 产品边界：`docs/PRODUCT_SPEC.md`
 - 发布约定：`docs/RELEASE.md`
+- 桌面 GUI 设计：`docs/GUI.md`
 
 ## 开源仓库
 

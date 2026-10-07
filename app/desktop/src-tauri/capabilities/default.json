@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for ExamPPT desktop",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/examppt-core",
+          "cmd": "binaries/examppt-core",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
+  ]
+}
