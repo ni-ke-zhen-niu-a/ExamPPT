@@ -166,7 +166,6 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
             <h3>这里会显示最终 PPT</h3>
             <p>左侧原 PDF，右侧最终放映画面；点击中间题号即可自动对齐。</p>
           </div>
-          <img id="pptPreview" class="ppt-preview-image" alt="PPT preview" hidden />
         </div>
       </section>
     </main>
@@ -196,7 +195,7 @@ const questionList = document.querySelector<HTMLDivElement>("#questionList")!;
 const questionCount = document.querySelector<HTMLElement>("#questionCount")!;
 const crossPageCount = document.querySelector<HTMLElement>("#crossPageCount")!;
 const slideCount = document.querySelector<HTMLElement>("#slideCount")!;
-const pptPreview = document.querySelector<HTMLImageElement>("#pptPreview")!;
+let pptPreview: HTMLImageElement | null = null;
 const pptPlaceholder = document.querySelector<HTMLDivElement>("#pptPlaceholder")!;
 const slideInfo = document.querySelector<HTMLSpanElement>("#slideInfo")!;
 const openOutput = document.querySelector<HTMLButtonElement>("#openOutput")!;
@@ -296,7 +295,10 @@ function resetResult() {
   slideCount.textContent = "—";
   questionList.innerHTML = '<div class="rail-empty">生成后可按题号同步查看 PDF 与 PPT。</div>';
   pptPlaceholder.hidden = false;
-  pptPreview.hidden = true;
+  if (pptPreview) {
+    pptPreview.remove();
+    pptPreview = null;
+  }
   slideInfo.textContent = "—";
   openOutput.disabled = true;
   if (state.currentPreviewUrl) {
@@ -333,8 +335,13 @@ async function showPreviewSlide(slideNumber: number) {
   if (state.currentPreviewUrl) URL.revokeObjectURL(state.currentPreviewUrl);
   state.currentPreviewUrl = URL.createObjectURL(blob);
 
+  if (!pptPreview) {
+    pptPreview = document.createElement("img");
+    pptPreview.className = "ppt-preview-image";
+    pptPreview.alt = "PPT preview";
+    document.querySelector("#pptViewer")?.appendChild(pptPreview);
+  }
   pptPreview.src = state.currentPreviewUrl;
-  pptPreview.hidden = false;
   pptPlaceholder.hidden = true;
   slideInfo.textContent = `第 ${slideNumber} / ${state.summary?.preview_files.length || 0} 页`;
 }
@@ -478,3 +485,23 @@ viewer.addEventListener("drop", async (event) => {
     await openBrowserPdf(file);
   }
 });
+
+
+async function bootstrapSmokeTest() {
+  if (!nativeTauri) return;
+  try {
+    const pdf = await invoke<string | null>("smoke_test_pdf");
+    if (!pdf) return;
+    footerNote.textContent = "自动化验收：正在载入测试 PDF…";
+    await openNativePdf(pdf);
+    const autoBuild = await invoke<boolean>("smoke_test_auto_build");
+    if (autoBuild) {
+      footerNote.textContent = "自动化验收：正在生成 PPT…";
+      await buildPpt();
+    }
+  } catch (error) {
+    showError(`自动化验收失败：${String(error)}`);
+  }
+}
+
+void bootstrapSmokeTest();

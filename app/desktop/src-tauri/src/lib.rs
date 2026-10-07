@@ -1,3 +1,5 @@
+[Reading 51 lines from start (total: 51 lines, 0 remaining)]
+
 use std::{fs, path::Path, process::Command};
 
 fn allowed_extension(path: &str, allowed: &[&str]) -> bool {
@@ -36,6 +38,18 @@ fn reveal_path(path: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn smoke_test_pdf() -> Option<String> {
+    std::env::var("EXAMPPT_TEST_PDF").ok()
+}
+
+#[tauri::command]
+fn smoke_test_auto_build() -> bool {
+    std::env::var("EXAMPPT_AUTO_BUILD")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -44,8 +58,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_file_bytes,
             read_text_file,
-            reveal_path
+            reveal_path,
+            smoke_test_pdf,
+            smoke_test_auto_build
         ])
         .run(tauri::generate_context!())
         .expect("error while running ExamPPT");
 }
+
+[executed on device: 你可真牛啊 (878f5852-e809-47e5-aa34-037bc3fbbb38)]
