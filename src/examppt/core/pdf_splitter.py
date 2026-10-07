@@ -425,7 +425,8 @@ def render_questions(
             merged.paste(im, (0, y))
             y += im.height + join_gap_px
 
-        merged = _compact_blank_rows(merged)
+        # Preserve the source PDF's internal vertical spacing exactly.
+        # Only trim outer whitespace; do not collapse blank bands inside a question.
         merged = _trim_vertical_white(merged)
 
         image_path = output_dir / f"q{q.number:03d}.png"

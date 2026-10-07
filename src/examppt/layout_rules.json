@@ -13,7 +13,7 @@
     "min_bottom_margin_in": 0.2,
     "gap_in": 0.1,
     "max_questions_per_slide": 3,
-    "max_multi_fill_ratio": 0.84,
+    "max_multi_fill_ratio": 0.98,
     "long_pair_threshold_in": 2.2,
     "separate_long_pairs_in_solution_section": true
   },

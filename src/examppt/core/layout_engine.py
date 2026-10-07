@@ -10,6 +10,8 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
+from .pdf_splitter import _compact_blank_rows, _trim_vertical_white
+
 
 ROOT = Path(__file__).resolve().parent
 
@@ -108,6 +110,40 @@ def _load_question_images(manifest: dict, manifest_path: Path) -> tuple[dict[int
     return qimgs, violations
 
 
+def _compact_only_oversized_questions(
+    qimgs: dict[int, dict],
+    max_height_in: float,
+    question_width_in: float,
+    output_dir: Path,
+) -> list[int]:
+    """Preserve source spacing unless a single question cannot fit on one slide."""
+    compacted_questions: list[int] = []
+    assets = output_dir / "layout_assets"
+
+    for q, item in qimgs.items():
+        intrinsic_height = question_width_in * item["ratio"]
+        if intrinsic_height <= max_height_in:
+            continue
+
+        with Image.open(item["path"]) as source:
+            original = source.convert("RGB")
+        compacted = _trim_vertical_white(_compact_blank_rows(original))
+        new_ratio = compacted.height / compacted.width
+
+        if new_ratio >= item["ratio"]:
+            continue
+
+        assets.mkdir(parents=True, exist_ok=True)
+        image_path = assets / f"q{q:03d}_compact.png"
+        compacted.save(image_path, optimize=True)
+        item["path"] = image_path
+        item["ratio"] = new_ratio
+        item["compacted_from_ratio"] = intrinsic_height / question_width_in
+        compacted_questions.append(q)
+
+    return compacted_questions
+
+
 def build(
     manifest_path: str | Path,
     rules_path: str | Path | None = None,
@@ -151,6 +187,12 @@ def build(
     used = 0.0
 
     max_h = content_limit - layout["content_top_in"]
+    compacted_questions = _compact_only_oversized_questions(
+        qimgs,
+        max_height_in=max_h,
+        question_width_in=layout["question_width_in"],
+        output_dir=manifest_path.parent,
+    )
     max_questions = int(layout.get("max_questions_per_slide", 999))
     max_multi_fill = float(layout.get("max_multi_fill_ratio", 1.0))
     long_pair_threshold = float(layout.get("long_pair_threshold_in", 1e9))
@@ -299,6 +341,7 @@ def build(
         "question_count": question_count,
         "fixed_question_width_in": layout["question_width_in"],
         "questions": seen,
+        "compacted_questions": compacted_questions,
         "slides": qa_slides,
         "violations": violations,
     }
