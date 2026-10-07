@@ -335,12 +335,19 @@ async function renderPage() {
   const availableWidth = Math.max(320, viewer.clientWidth - 12);
   const fitScale = availableWidth / baseViewport.width;
   const viewport = page.getViewport({ scale: fitScale });
+  const outputScale = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
   const ctx = canvas.getContext("2d")!;
-  canvas.width = Math.ceil(viewport.width);
-  canvas.height = Math.ceil(viewport.height);
-  canvas.style.width = `${Math.floor(availableWidth)}px`;
-  canvas.style.height = "auto";
-  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+
+  canvas.width = Math.floor(viewport.width * outputScale);
+  canvas.height = Math.floor(viewport.height * outputScale);
+  canvas.style.width = `${Math.floor(viewport.width)}px`;
+  canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+  const transform = outputScale !== 1
+    ? [outputScale, 0, 0, outputScale, 0, 0]
+    : undefined;
+
+  await page.render({ canvasContext: ctx, viewport, canvas, transform }).promise;
 
   pageInfo.textContent = `${state.currentPage} / ${state.pageCount}`;
   prevPage.disabled = state.currentPage <= 1;
