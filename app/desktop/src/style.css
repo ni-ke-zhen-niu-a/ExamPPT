@@ -117,9 +117,22 @@ button:disabled {
   border: 1px solid #e1e4e7;
 }
 
-.ghost-btn.compact {
+.ghost-btn.compact,
+.primary-btn.compact {
   padding: 7px 10px;
   font-size: 12px;
+}
+
+.ghost-btn.active {
+  background: #fff0f0;
+  border-color: #e8b8b8;
+  color: #9a4343;
+}
+
+.pdf-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .workspace {
@@ -242,6 +255,46 @@ button:disabled {
   background: white;
   box-shadow: 0 7px 24px rgba(34, 41, 47, .09);
   border: 1px solid #dfe2e5;
+}
+
+.boundary-line {
+  position: absolute;
+  z-index: 8;
+  height: 14px;
+  transform: translateY(-7px);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.boundary-line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 2px;
+  background: #c94f4f;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.85);
+}
+
+.boundary-line span {
+  position: absolute;
+  right: 7px;
+  bottom: 8px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #e5b7b7;
+  color: #a33f3f;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(50, 30, 30, .08);
+}
+
+.boundary-line.dragging::before {
+  height: 3px;
+  background: #a93636;
 }
 
 .rail {

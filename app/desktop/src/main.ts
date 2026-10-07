@@ -54,6 +54,11 @@ type Manifest = {
   questions: ManifestQuestion[];
 };
 
+type BoundaryOverride = {
+  page: number;
+  top: number;
+};
+
 type AppState = {
   sourcePath: string | null;
   fileName: string | null;
@@ -65,6 +70,9 @@ type AppState = {
   manifest: Manifest | null;
   currentQuestion: number | null;
   currentPreviewUrl: string | null;
+  boundaryEditMode: boolean;
+  boundaryOverrides: Record<number, BoundaryOverride>;
+  boundaryDirty: boolean;
 };
 
 const state: AppState = {
@@ -78,6 +86,9 @@ const state: AppState = {
   manifest: null,
   currentQuestion: null,
   currentPreviewUrl: null,
+  boundaryEditMode: false,
+  boundaryOverrides: {},
+  boundaryDirty: false,
 };
 
 const nativeTauri = Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
@@ -106,10 +117,14 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
             <div class="panel-kicker">原始文件</div>
             <h2>PDF 试卷</h2>
           </div>
-          <div class="pager">
-            <button id="prevPage" disabled>‹</button>
-            <span id="pageInfo">— / —</span>
-            <button id="nextPage" disabled>›</button>
+          <div class="pdf-head-actions">
+            <button class="ghost-btn compact" id="boundaryToggle" disabled>调整边界</button>
+            <button class="primary-btn compact" id="applyBoundaries" disabled hidden>应用并重新生成</button>
+            <div class="pager">
+              <button id="prevPage" disabled>‹</button>
+              <span id="pageInfo">— / —</span>
+              <button id="nextPage" disabled>›</button>
+            </div>
           </div>
         </div>
         <div class="viewer" id="pdfViewer">
@@ -120,6 +135,9 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
             <button class="secondary-btn" id="openFile">选择 PDF</button>
           </div>
           <canvas id="pdfCanvas" hidden></canvas>
+          <div id="boundaryLine" class="boundary-line" hidden>
+            <span id="boundaryLabel">题目起始线</span>
+          </div>
         </div>
       </section>
 
@@ -200,6 +218,10 @@ const pptPlaceholder = document.querySelector<HTMLDivElement>("#pptPlaceholder")
 const slideInfo = document.querySelector<HTMLSpanElement>("#slideInfo")!;
 const openOutput = document.querySelector<HTMLButtonElement>("#openOutput")!;
 const footerNote = document.querySelector<HTMLDivElement>("#footerNote")!;
+const boundaryToggle = document.querySelector<HTMLButtonElement>("#boundaryToggle")!;
+const applyBoundaries = document.querySelector<HTMLButtonElement>("#applyBoundaries")!;
+const boundaryLine = document.querySelector<HTMLDivElement>("#boundaryLine")!;
+const boundaryLabel = document.querySelector<HTMLSpanElement>("#boundaryLabel")!;
 
 let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]> | null = null;
 
@@ -213,6 +235,86 @@ function formatSize(bytes: number | null) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function boundaryFilePath() {
+  if (!state.sourcePath) return null;
+  const withoutPdf = state.sourcePath.replace(/\.pdf$/i, "");
+  return `${withoutPdf}_ExamPPT\\boundaries.json`;
+}
+
+function effectiveBoundary(question: ManifestQuestion) {
+  return state.boundaryOverrides[question.number] || {
+    page: question.anchor.page,
+    top: question.anchor.top,
+  };
+}
+
+function updateBoundaryControls() {
+  const ready = nativeTauri && Boolean(state.manifest && state.currentQuestion);
+  boundaryToggle.disabled = !ready;
+  boundaryToggle.classList.toggle("active", state.boundaryEditMode);
+  boundaryToggle.textContent = state.boundaryEditMode ? "完成调整" : "调整边界";
+  applyBoundaries.hidden = !state.boundaryEditMode;
+  applyBoundaries.disabled = !state.boundaryDirty;
+}
+
+function updateBoundaryLine() {
+  if (!state.boundaryEditMode || !state.manifest || !state.currentQuestion || canvas.hidden) {
+    boundaryLine.hidden = true;
+    return;
+  }
+
+  const question = state.manifest.questions.find((q) => q.number === state.currentQuestion);
+  if (!question) {
+    boundaryLine.hidden = true;
+    return;
+  }
+  const boundary = effectiveBoundary(question);
+  if (boundary.page !== state.currentPage || canvas.clientHeight <= 0 || canvas.height <= 0) {
+    boundaryLine.hidden = true;
+    return;
+  }
+
+  const displayScale = canvas.clientHeight / canvas.height;
+  const y = boundary.top * state.zoom * displayScale;
+  boundaryLine.style.left = `${canvas.offsetLeft}px`;
+  boundaryLine.style.width = `${canvas.clientWidth}px`;
+  boundaryLine.style.top = `${canvas.offsetTop + y}px`;
+  boundaryLabel.textContent = `第 ${question.number} 题起始线 · 拖动调整`;
+  boundaryLine.hidden = false;
+}
+
+async function loadBoundaryDraft() {
+  state.boundaryOverrides = {};
+  state.boundaryDirty = false;
+  const path = boundaryFilePath();
+  if (!nativeTauri || !path) return;
+  try {
+    const raw = await invoke<string>("read_text_file", { path });
+    const parsed = JSON.parse(raw) as { question_starts?: Record<string, BoundaryOverride> };
+    for (const [number, value] of Object.entries(parsed.question_starts || {})) {
+      state.boundaryOverrides[Number(number)] = value;
+    }
+  } catch {
+    // No saved manual adjustments for this PDF yet.
+  }
+}
+
+async function saveBoundaryDraft() {
+  const path = boundaryFilePath();
+  if (!nativeTauri || !path) throw new Error("当前文件无法保存人工边界。");
+  const question_starts = Object.fromEntries(
+    Object.entries(state.boundaryOverrides).map(([number, value]) => [number, {
+      page: value.page,
+      top: Number(value.top.toFixed(3)),
+    }]),
+  );
+  const content = JSON.stringify({ question_starts }, null, 2);
+  await invoke("write_text_file", { path, content });
+  state.boundaryDirty = false;
+  updateBoundaryControls();
+  return path;
+}
+
 async function openPdfBytes(bytes: Uint8Array, name: string, sourcePath: string | null = null) {
   state.sourcePath = sourcePath;
   state.fileName = name;
@@ -220,7 +322,11 @@ async function openPdfBytes(bytes: Uint8Array, name: string, sourcePath: string 
   state.summary = null;
   state.manifest = null;
   state.currentQuestion = null;
+  state.boundaryEditMode = false;
+  state.boundaryOverrides = {};
+  state.boundaryDirty = false;
   resetResult();
+  await loadBoundaryDraft();
 
   fileStatus.textContent = state.fileSize
     ? `${name} · ${formatSize(state.fileSize)}`
@@ -260,6 +366,7 @@ async function renderPage() {
   canvas.style.width = "min(100%, " + viewport.width + "px)";
   canvas.style.height = "auto";
   await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+  requestAnimationFrame(updateBoundaryLine);
 
   pageInfo.textContent = `${state.currentPage} / ${state.pageCount}`;
   prevPage.disabled = state.currentPage <= 1;
@@ -301,6 +408,8 @@ function resetResult() {
   }
   slideInfo.textContent = "—";
   openOutput.disabled = true;
+  boundaryLine.hidden = true;
+  updateBoundaryControls();
   if (state.currentPreviewUrl) {
     URL.revokeObjectURL(state.currentPreviewUrl);
     state.currentPreviewUrl = null;
@@ -348,6 +457,7 @@ async function showPreviewSlide(slideNumber: number) {
 
 async function setCurrentQuestion(q: number) {
   state.currentQuestion = q;
+  updateBoundaryControls();
 
   for (const button of questionList.querySelectorAll<HTMLButtonElement>(".question-item")) {
     button.classList.toggle("active", Number(button.dataset.q) === q);
@@ -361,6 +471,7 @@ async function setCurrentQuestion(q: number) {
 
   const slide = slideForQuestion(q);
   if (slide) await showPreviewSlide(slide.slide);
+  requestAnimationFrame(updateBoundaryLine);
 }
 
 function renderBuildResult() {
@@ -399,6 +510,10 @@ function renderBuildResult() {
 
 async function buildPpt() {
   if (!nativeTauri || !state.sourcePath) return;
+  if (state.boundaryDirty) {
+    footerNote.textContent = "边界调整尚未应用，请点击“应用并重新生成”。";
+    return;
+  }
 
   const oldText = buildBtn.textContent;
   buildBtn.disabled = true;
@@ -408,10 +523,12 @@ async function buildPpt() {
   footerNote.textContent = "正在自动切题、合并跨页题、排版并执行 QA…";
 
   try {
-    const command = Command.sidecar("binaries/examppt-core", [
-      "build",
-      state.sourcePath,
-    ]);
+    const args = ["build", state.sourcePath];
+    const boundaries = boundaryFilePath();
+    if (boundaries && Object.keys(state.boundaryOverrides).length > 0) {
+      args.push("--boundaries", boundaries);
+    }
+    const command = Command.sidecar("binaries/examppt-core", args);
     const output = await command.execute();
 
     const stdout = output.stdout.trim();
@@ -432,6 +549,99 @@ async function buildPpt() {
     buildBtn.textContent = oldText || "生成讲题 PPT";
   }
 }
+
+let draggingBoundary = false;
+
+function boundaryTopFromPointer(event: PointerEvent) {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.height <= 0) return null;
+  const displayY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+  const canvasY = displayY * (canvas.height / rect.height);
+  return canvasY / state.zoom;
+}
+
+function updateBoundaryFromPointer(event: PointerEvent) {
+  if (!draggingBoundary || !state.currentQuestion || !state.manifest) return;
+  const question = state.manifest.questions.find((q) => q.number === state.currentQuestion);
+  const top = boundaryTopFromPointer(event);
+  if (!question || top === null) return;
+
+  const previous = state.manifest.questions.find((q) => q.number === question.number - 1);
+  const next = state.manifest.questions.find((q) => q.number === question.number + 1);
+  let minTop = 1;
+  let maxTop = canvas.height / state.zoom - 1;
+
+  if (previous) {
+    const prevBoundary = effectiveBoundary(previous);
+    if (prevBoundary.page === state.currentPage) minTop = Math.max(minTop, prevBoundary.top + 2);
+  }
+  if (next) {
+    const nextBoundary = effectiveBoundary(next);
+    if (nextBoundary.page === state.currentPage) maxTop = Math.min(maxTop, nextBoundary.top - 2);
+  }
+
+  state.boundaryOverrides[question.number] = {
+    page: state.currentPage,
+    top: Math.max(minTop, Math.min(maxTop, top)),
+  };
+  state.boundaryDirty = true;
+  updateBoundaryControls();
+  updateBoundaryLine();
+  footerNote.textContent = `已调整第 ${question.number} 题起始线，点击“应用并重新生成”后生效。`;
+}
+
+boundaryToggle.addEventListener("click", () => {
+  if (!state.manifest || !state.currentQuestion) return;
+  if (state.boundaryEditMode && state.boundaryDirty) {
+    footerNote.textContent = "当前有未应用的边界调整，请先点击“应用并重新生成”。";
+    return;
+  }
+  state.boundaryEditMode = !state.boundaryEditMode;
+  updateBoundaryControls();
+  updateBoundaryLine();
+  footerNote.textContent = state.boundaryEditMode
+    ? "拖动左侧红色起始线调整当前题边界；调整后需点击“应用并重新生成”。"
+    : "已退出边界调整模式。";
+});
+
+applyBoundaries.addEventListener("click", async () => {
+  if (!state.boundaryDirty) return;
+  try {
+    applyBoundaries.disabled = true;
+    footerNote.textContent = "正在保存人工边界并重新生成…";
+    await saveBoundaryDraft();
+    await buildPpt();
+  } catch (error) {
+    showError(`应用边界失败：${String(error)}`);
+  }
+});
+
+boundaryLine.addEventListener("pointerdown", (event) => {
+  if (!state.boundaryEditMode) return;
+  draggingBoundary = true;
+  boundaryLine.setPointerCapture(event.pointerId);
+  boundaryLine.classList.add("dragging");
+  event.preventDefault();
+});
+
+boundaryLine.addEventListener("pointermove", (event) => {
+  updateBoundaryFromPointer(event);
+});
+
+boundaryLine.addEventListener("pointerup", (event) => {
+  if (!draggingBoundary) return;
+  updateBoundaryFromPointer(event);
+  draggingBoundary = false;
+  boundaryLine.releasePointerCapture(event.pointerId);
+  boundaryLine.classList.remove("dragging");
+});
+
+boundaryLine.addEventListener("pointercancel", () => {
+  draggingBoundary = false;
+  boundaryLine.classList.remove("dragging");
+});
+
+window.addEventListener("resize", () => requestAnimationFrame(updateBoundaryLine));
 
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
