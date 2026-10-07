@@ -1,5 +1,3 @@
-[Reading 51 lines from start (total: 51 lines, 0 remaining)]
-
 use std::{fs, path::Path, process::Command};
 
 fn allowed_extension(path: &str, allowed: &[&str]) -> bool {
@@ -65,5 +63,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running ExamPPT");
 }
-
-[executed on device: 你可真牛啊 (878f5852-e809-47e5-aa34-037bc3fbbb38)]
